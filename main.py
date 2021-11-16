@@ -1,8 +1,9 @@
-import hashlib
+import pickle
+from hashlib import md5
 import json
 import time
 from Crypto.PublicKey import RSA
-from Crypto.Hash import SHA256
+from Crypto.Hash import SHA256, MD5
 from Crypto.Signature.pkcs1_15 import PKCS115_SigScheme
 import random
 
@@ -20,7 +21,6 @@ class Transaction:
         return self.toJSON()
 
 
-
 class Block:
     nonce = random.random() * 9999999
 
@@ -30,9 +30,9 @@ class Block:
         createdAt = time.localtime()
         self.time = time.strftime("%H:%M:%S", createdAt)
 
-    def getHash(self): # this returns a JSON string of the block object which is then converted to hexadecimal
+    def getHash(self):                      # this returns a JSON string of the block object which is then converted to hexadecimal
         string = json.dumps(self)
-        hashed = hashlib.sha256(string)
+        hashed = SHA256.new(str(string).encode())
         return hashed.hexdigest()
 
 
@@ -47,9 +47,7 @@ class Chain:
         solution = 1
         print('mining...')
         while True:
-            md5 = hashlib.md5()
-            md5.update(str(nonce+solution))
-            possibleSolution = md5.hexdigest()
+            possibleSolution = MD5.new(nonce+solution).hexdigest()
             if possibleSolution[0:4] == '0000':
                 print('Solution found. You earned some coin!')
                 return possibleSolution
@@ -57,7 +55,7 @@ class Chain:
             solution += 1
 
     def addBlock(self, transaction, senderPublicKey, signature):
-        toBeVerified = hashlib.sha256(str(transaction))
+        toBeVerified = SHA256.new(str(transaction).encode())
         verifier = PKCS115_SigScheme(senderPublicKey)
         try:
             verifier.verify(toBeVerified, signature)
@@ -81,7 +79,7 @@ class Wallet:
 
     def sendMoney(self, amount, recieverpublickey):
         transaction = Transaction(amount, self.publicKey, recieverpublickey)
-        myHash = hashlib.sha256(str(transaction).encode())
+        myHash = SHA256.new(str(transaction).encode())
         signature = self.signer.sign(myHash)
         myChain.addBlock(transaction, self.publicKey, signature)
 
