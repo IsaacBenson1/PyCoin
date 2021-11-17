@@ -30,8 +30,11 @@ class Block:
         createdAt = time.localtime()
         self.time = time.strftime("%H:%M:%S", createdAt)
 
+    def toJSON(self):
+        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
+
     def getHash(self):                      # this returns a JSON string of the block object which is then converted to hexadecimal
-        string = json.dumps(self)
+        string = self.toJSON()
         hashed = SHA256.new(str(string).encode())
         return hashed.hexdigest()
 
@@ -60,7 +63,8 @@ class Chain:
         try:
             verifier.verify(toBeVerified, signature)
             self.chain.append(Block(self.getLast().getHash(), transaction))
-            print("Verification complete. Block successfully added! :)")
+            print("Verification complete. Block successfully added!")
+            return 1
 
         except ValueError:
             print("Invalid block :(")
@@ -72,27 +76,37 @@ myChain = Chain()
 
 class Wallet:
 
-    def __init__(self, keyPair=RSA.generate(bits=2048)):
+    def __init__(self, balance, keyPair=RSA.generate(bits=2048)):
         self.keyPair = keyPair
         self.publicKey = keyPair.public_key()
         self.signer = PKCS115_SigScheme(keyPair)
+        self.balance = balance
 
-    def sendMoney(self, amount, recieverpublickey):
-        transaction = Transaction(amount, self.publicKey, recieverpublickey)
+    def sendMoney(self, amount, reciever):
+        recieverpublickey = reciever.publicKey
+        if amount > self.balance:
+            print('insufficient funds :(')
+            return
+
+        transaction = Transaction(self.publicKey, recieverpublickey, amount)
         myHash = SHA256.new(str(transaction).encode())
         signature = self.signer.sign(myHash)
-        myChain.addBlock(transaction, self.publicKey, signature)
+        # myChain.addBlock(transaction, self.publicKey, signature)
+        if myChain.addBlock(transaction, self.publicKey, signature) == 1:
+            reciever.balance += transaction.amount
+            self.balance -= transaction.amount
+            print("Sender balance: $"+str(self.balance)+" Reciever Balance: $"+str(reciever.balance))
 
 
-isaac = Wallet()
-forrest = Wallet()
-owen = Wallet()
-berg = Wallet()
+isaac = Wallet(100)
+forrest = Wallet(0)
+owen = Wallet(0)
+berg = Wallet(0)
 
 
-isaac.sendMoney(100, forrest.publicKey)
-forrest.sendMoney(50, owen.publicKey)
-owen.sendMoney(25, berg.publicKey)
+isaac.sendMoney(100, forrest)
+forrest.sendMoney(50, owen)
+owen.sendMoney(25, berg)
 
 
 
